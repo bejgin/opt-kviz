@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Kvíz na určování definitnosti matic na první pohled (B0B33OPT Optimalizace, FEL ČVUT).">
+<title>Definitnost na první pohled</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=STIX+Two+Text:ital,wght@0,400;0,600;1,400&family=Source+Sans+3:wght@400;600;700&display=swap">
+<style>
+html{color-scheme:light}body{margin:0}[hidden]{display:none!important}
+/* Layout: jedna úzká „sešitová“ karta s maticí uprostřed, pod ní 5 odpovědí, vysvětlení, nastavení a statistika. */
+:root{
+  --bg:#eef2f6; --paper:#fbfcfd; --grid:rgba(40,70,130,.07); --fg:#1b2231; --muted:#5d6678; --line:#d5dbe5;
+  --accent:#2a4bb0; --accent-soft:#e3e9fa; --ok:#1d7a4c; --ok-soft:#dff2e8; --bad:#b0302a; --bad-soft:#f8e2e0;
+  --serif:"STIX Two Text","Cambria Math",Cambria,Georgia,serif;
+  --sans:"Source Sans 3","Segoe UI",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#11141b; --paper:#181c25; --grid:rgba(140,165,255,.06); --fg:#e3e7ef; --muted:#9aa3b5; --line:#2c3341;
+  --accent:#93abff; --accent-soft:#232c48; --ok:#5fd19a; --ok-soft:#173327; --bad:#ff8f86; --bad-soft:#3a1f1e; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11141b; --paper:#181c25; --grid:rgba(140,165,255,.06); --fg:#e3e7ef; --muted:#9aa3b5; --line:#2c3341;
+  --accent:#93abff; --accent-soft:#232c48; --ok:#5fd19a; --ok-soft:#173327; --bad:#ff8f86; --bad-soft:#3a1f1e; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:16px;line-height:1.5}
+.wrap{max-width:720px;margin:0 auto;padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:16px}
+header{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 16px}
+h1{font-family:var(--serif);font-weight:600;font-size:1.6rem;margin:0;text-wrap:balance}
+h1 i{color:var(--accent)}
+.score{font-variant-numeric:tabular-nums;color:var(--muted);font-size:.95rem;display:flex;gap:14px}
+.score b{color:var(--fg)}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:20px 18px;
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:22px 22px}
+.tag{font-size:.75rem;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);font-weight:700}
+.prompt{margin:4px 0 0;color:var(--muted)}
+.stage{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:10px 14px;padding:22px 0 18px;font-family:var(--serif);font-size:1.45rem;overflow-x:auto}
+.mat{display:inline-flex;position:relative;padding:.15em .6em;vertical-align:middle}
+.mat::before,.mat::after{content:"";position:absolute;top:0;bottom:0;width:.35em;border:2px solid currentColor}
+.mat::before{left:0;border-right:none}.mat::after{right:0;border-left:none}
+.mat .g{display:grid;gap:.15em 1em}
+.mat .g span{text-align:right;font-variant-numeric:tabular-nums lining-nums;min-width:1.2em}
+.mat.sm{font-size:.95em}
+.mat.sm .g{gap:.05em .8em}
+.answers{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.answers button{font:inherit;border:1.5px solid var(--line);background:var(--paper);color:var(--fg);border-radius:8px;padding:10px 4px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0}
+.answers button b{font-size:1.05rem}
+.answers button small{color:var(--muted);font-family:var(--serif);font-size:.85rem}
+.answers button:hover:not(:disabled){border-color:var(--accent);background:var(--accent-soft)}
+.answers button:focus-visible,.btn:focus-visible,.chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.answers button.ok{border-color:var(--ok);background:var(--ok-soft)}
+.answers button.bad{border-color:var(--bad);background:var(--bad-soft)}
+.answers button:disabled{cursor:default}
+.answers button:disabled:not(.ok):not(.bad){opacity:.55}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;align-items:center}
+.btn{font:inherit;font-weight:600;border-radius:8px;padding:8px 16px;cursor:pointer;border:1.5px solid var(--accent);background:transparent;color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--paper)}
+.btn[hidden]{display:none}
+.kbd{color:var(--muted);font-size:.8rem;margin-left:auto}
+.hint{margin-top:12px;padding:10px 12px;border-radius:8px;background:var(--accent-soft);font-size:.95rem}
+.fb{margin-top:14px;border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:8px}
+.verdict{font-weight:700;font-size:1.1rem}
+.verdict.ok{color:var(--ok)}.verdict.bad{color:var(--bad)}
+.trick{font-size:.85rem;color:var(--muted)}
+.trick b{color:var(--fg)}
+.fb ol{margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:6px}
+.fb li{min-width:0;overflow-x:auto}
+.m{font-family:var(--serif);font-size:1.05em;white-space:nowrap}
+.fast{font-size:.92rem;border-left:3px solid var(--accent);padding-left:10px}
+section h2{font-family:var(--serif);font-size:1.15rem;margin:0 0 8px;font-weight:600}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font:inherit;font-size:.92rem;border:1.5px solid var(--line);border-radius:999px;padding:5px 12px;background:var(--paper);color:var(--muted);cursor:pointer}
+.chip[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:var(--accent-soft);font-weight:600}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:.95rem}
+td,th{padding:6px 4px;border-bottom:1px solid var(--line);text-align:left}
+th{color:var(--muted);font-weight:600;font-size:.8rem;text-transform:uppercase;letter-spacing:.05em}
+td.n{text-align:right;width:5em}
+.bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden;min-width:60px}
+.bar i{display:block;height:100%;background:var(--accent)}
+details{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:12px 16px}
+summary{cursor:pointer;font-family:var(--serif);font-weight:600;font-size:1.1rem}
+details ul{margin:10px 0 0;padding-left:1.2em;display:flex;flex-direction:column;gap:6px}
+.foot{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;color:var(--muted);font-size:.85rem}
+.link{background:none;border:none;color:var(--muted);text-decoration:underline;cursor:pointer;font:inherit;padding:0}
+@media (max-width:440px){.answers button small{display:none}.stage{font-size:1.25rem}.kbd{display:none}}
+@media (prefers-reduced-motion:no-preference){.answers button{transition:background .12s,border-color .12s}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Definitnost <i>na první pohled</i></h1>
+    <div class="score" aria-live="polite"><span>Správně <b id="sc">0</b>/<b id="st">0</b></span><span>Série <b id="ss">0</b></span><span>Rekord <b id="sb">0</b></span></div>
+  </header>
+
+  <div class="card" id="card">
+    <div class="tag" id="qtag">—</div>
+    <p class="prompt" id="qprompt">Urči definitnost. Vyber nejpřesnější možnost.</p>
+    <div class="stage" id="stage"></div>
+    <div class="answers" id="answers"></div>
+    <div class="row">
+      <button class="btn" id="hintBtn" type="button">Nápověda</button>
+      <button class="btn primary" id="nextBtn" type="button" hidden>Další matice</button>
+      <span class="kbd">klávesy 1–5 · H · Enter</span>
+    </div>
+    <div class="hint" id="hint" hidden></div>
+    <div class="fb" id="fb" hidden></div>
+  </div>
+
+  <section>
+    <h2>Co procvičovat</h2>
+    <div class="chips" id="chips"></div>
+  </section>
+
+  <section>
+    <h2>Úspěšnost podle triku</h2>
+    <table><thead><tr><th>Trik</th><th></th><th class="n">Správně</th></tr></thead><tbody id="stats"></tbody></table>
+  </section>
+
+  <details>
+    <summary>Přehled triků</summary>
+    <ul>
+      <li><b>Diagonální matice</b> – <span class="m">x<sup>T</sup>Ax = d₁x₁² + … + dₙxₙ²</span>, definitnost čteš ze znamének dᵢ.</li>
+      <li><b>Diagonála má + i −</b> – <span class="m">f(eᵢ) = aᵢᵢ</span>, takže forma nabývá obou znamének ⇒ indefinitní.</li>
+      <li><b>aₖₖ = 0 a v jeho řádku nenulový prvek</b> – podmatice 2×2 má det = −aₖⱼ² &lt; 0 ⇒ indefinitní.</li>
+      <li><b>Nulový řádek i sloupec</b> – proměnná ve formě nefiguruje ⇒ nejvýš semidefinitní; rozhoduje zbytek.</li>
+      <li><b>2×2</b> – det &lt; 0 indef.; det &gt; 0 a a₁₁ &gt; 0 PD, a₁₁ &lt; 0 ND; det = 0 semidefinitní (znaménko diagonály).</li>
+      <li><b>Nesymetrická A</b> – rozhoduje <span class="m">½(A + A<sup>T</sup>)</span>, ne vlastní čísla A.</li>
+      <li><b>B<sup>T</sup>B</b> – <span class="m">x<sup>T</sup>B<sup>T</sup>Bx = ‖Bx‖² ≥ 0</span>; PD právě když jsou sloupce B lineárně nezávislé.</li>
+      <li><b>3×3</b> – Sylvester: PD ⟺ D₁, D₂, D₃ &gt; 0; ND ⟺ D₁ &lt; 0, D₂ &gt; 0, D₃ &lt; 0. Symetrické úpravy: pivoty dₖ = Dₖ/Dₖ₋₁.</li>
+    </ul>
+  </details>
+
+  <div class="foot"><span>Připravil Tonda Šmída · značení podle skript T. Wernera <i>Optimalizace</i>, kap. 6.</span><button class="link" id="reset" type="button">Vynulovat statistiku</button></div>
+</div>
+
+<script>
+(function(){
+const TYPES=[
+  {id:'PD', code:'PD', sym:'> 0', name:'pozitivně definitní'},
+  {id:'PSD',code:'PSD',sym:'≥ 0', name:'pozitivně semidefinitní'},
+  {id:'ND', code:'ND', sym:'< 0', name:'negativně definitní'},
+  {id:'NSD',code:'NSD',sym:'≤ 0', name:'negativně semidefinitní'},
+  {id:'IND',code:'indef.',sym:'±', name:'indefinitní'}];
+const TNAME=Object.fromEntries(TYPES.map(t=>[t.id,t.name]));
+const GROUPS={diag:'Diagonála a nuly',det2:'2×2 přes det',past:'Pasti',syl:'3×3 Sylvester'};
+const TRICKS={
+  diagM:['diag','Diagonální matice'], mixed:['diag','Diagonála má + i −'], zero:['diag','Nula na diagonále'], zrow:['diag','Nulový řádek i sloupec'],
+  det2:['det2','2×2: det a a₁₁'], nonsym:['past','Nesymetrická matice'], btb:['past','BᵀB, BBᵀ, I + BᵀB'], syl:['syl','Sylvester / symetrické úpravy']};
+
+const ri=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+const nz=(a,b)=>{let v;do v=ri(a,b);while(v===0);return v};
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const f=v=>v<0?'−'+(-v):String(v);
+const sub=['₀','₁','₂','₃','₄'];
+const aij=(i,j)=>'a'+sub[i+1]+sub[j+1];
+function mat(M,cls){const n=M[0].length;return `<span class="mat ${cls||''}"><span class="g" style="grid-template-columns:repeat(${n},auto)">${M.flat().map(v=>`<span>${typeof v==='number'?f(v):v}</span>`).join('')}</span></span>`}
+const M=s=>`<span class="m">${s}</span>`;
+const T='<sup>T</sup>';
+
+function classify2(a,b,c){const d=a*c-b*b;if(d<0)return'IND';if(d>0)return a>0?'PD':'ND';
+  if(a>0||c>0)return'PSD';if(a<0||c<0)return'NSD';return b===0?null:'IND'}
+function classifyDiag(d){const p=d.some(x=>x>0),n=d.some(x=>x<0),z=d.some(x=>x===0);
+  if(p&&n)return'IND';if(p&&!z)return'PD';if(p)return'PSD';if(n&&!z)return'ND';if(n)return'NSD';return null}
+function det3(A){return A[0][0]*(A[1][1]*A[2][2]-A[1][2]*A[2][1])-A[0][1]*(A[1][0]*A[2][2]-A[1][2]*A[2][0])+A[0][2]*(A[1][0]*A[2][1]-A[1][1]*A[2][0])}
+const maxAbs=A=>Math.max(...A.flat().map(Math.abs));
+const randTarget=()=>pick(['PD','PSD','ND','NSD','IND']);
+
+function gen2(target){for(let it=0;it<500;it++){let a,b,c;
+  if(target==='PD'||target==='ND'){a=ri(1,9);c=ri(1,9);const m=Math.floor(Math.sqrt(a*c-1));b=ri(-m,m);if(Math.random()<.7&&m>0)b=nz(-m,m);if(target==='ND'){a=-a;c=-c}}
+  else if(target==='PSD'||target==='NSD'){if(Math.random()<.2){a=ri(1,9);b=0;c=0;if(Math.random()<.5)[a,c]=[c,a]}else{const k=pick([1,1,2,3]),p=nz(-3,3),q=nz(-3,3);a=k*p*p;c=k*q*q;b=k*p*q}if(target==='NSD'){a=-a;b=-b;c=-c}}
+  else{const mode=ri(0,3);
+    if(mode<=1){a=ri(1,6);c=ri(1,6);const lo=Math.floor(Math.sqrt(a*c))+1;b=ri(lo,lo+3)*pick([1,-1]);if(Math.random()<.5){a=-a;c=-c}}
+    else if(mode===2){a=nz(-9,9);c=-Math.sign(a)*ri(1,9);b=ri(-5,5)}
+    else{a=0;c=ri(-9,9);b=nz(-6,6);if(Math.random()<.5)[a,c]=[c,a]}}
+  if(Math.max(Math.abs(a),Math.abs(b),Math.abs(c))<=16&&classify2(a,b,c)===target)return[a,b,c]}
+  return target==='PD'?[2,1,2]:[1,3,1]}
+
+function explain2(a,b,c,name){const d=a*c-b*b;const t=classify2(a,b,c);const L=[];
+  L.push(`${M(`det ${name} = ${f(a)}·${f(c)} − (${f(b)})² = ${f(a*c)} − ${b*b} = ${f(d)}`)}.`);
+  if(d<0)L.push(`det &lt; 0 ⇒ vlastní čísla mají opačná znaménka ⇒ <b>indefinitní</b>.`);
+  else if(d>0)L.push(`det &gt; 0 ⇒ obě vlastní čísla stejného znaménka; ${M('a₁₁ = '+f(a))} ${a>0?'&gt; 0 ⇒ <b>PD</b>':'&lt; 0 ⇒ <b>ND</b>'}.`);
+  else{const s=a!==0?a:c;L.push(`det = 0 ⇒ singulární, tedy jen <b>semidefinitní</b>; znaménko dá nenulový prvek diagonály (${M((a!==0?'a₁₁':'a₂₂')+' = '+f(s))}) ⇒ <b>${t}</b>.`)}
+  return L}
+
+function fastNote(A){const n=A.length,d=A.map((r,i)=>r[i]);
+  if(d.some(x=>x>0)&&d.some(x=>x<0)){const i=d.findIndex(x=>x>0),j=d.findIndex(x=>x<0);return `Rychleji: na diagonále je ${M(aij(i,i)+' = '+f(d[i]))} i ${M(aij(j,j)+' = '+f(d[j]))} ⇒ indefinitní hned.`}
+  for(let k=0;k<n;k++)if(d[k]===0)for(let j=0;j<n;j++)if(j!==k&&A[k][j]!==0)return `Rychleji: ${M(aij(k,k)+' = 0')} a v jeho řádku je ${M(aij(k,j)+' = '+f(A[k][j]))} ≠ 0 ⇒ indefinitní hned.`;
+  return null}
+
+/* ---------- generátory ---------- */
+function gDiagM(){const n=pick([2,3,3]),t=randTarget();let d;
+  for(;;){d=[];for(let i=0;i<n;i++)d.push(Math.random()<.25?0:nz(-9,9));if(classifyDiag(d)===t)break}
+  const A=d.map((v,i)=>d.map((_,j)=>i===j?v:0));
+  const terms=d.map((v,i)=>`${i?(v<0?' − ':' + '):(v<0?'−':'')}${Math.abs(v)}x${sub[i+1]}²`).join('');
+  const L=[`Diagonální matice ⇒ ${M('x'+T+'Ax = '+terms)}.`];
+  const z=d.some(v=>v===0);
+  if(t==='IND')L.push('Je tam kladný i záporný koeficient ⇒ forma nabývá obou znamének ⇒ <b>indefinitní</b>.');
+  else if(t==='PD'||t==='ND')L.push(`Všechny koeficienty ${t==='PD'?'&gt; 0':'&lt; 0'} ⇒ ${M('x'+T+'Ax '+(t==='PD'?'>':'<')+' 0')} pro každé x ≠ 0 ⇒ <b>${t}</b>.`);
+  else{const k=d.findIndex(v=>v===0);L.push(`Koeficienty ${t==='PSD'?'≥ 0':'≤ 0'}, ale ${M(aij(k,k)+' = 0')}: pro ${M('x = e'+sub[k+1])} je forma 0 ⇒ jen <b>${t}</b>, ne ${t==='PSD'?'PD':'ND'}.`)}
+  return{trick:'diagM',A,ans:t,hint:`Matice je diagonální. Napiš si ${M('x'+T+'Ax = Σ dᵢxᵢ²')}.`,steps:L}}
+
+function gMixed(){const n=pick([2,3,3]);let d;
+  for(;;){d=[];for(let i=0;i<n;i++)d.push(nz(-9,9));if(classifyDiag(d)==='IND')break}
+  const A=d.map((v,i)=>d.map(()=>0));for(let i=0;i<n;i++){A[i][i]=d[i];for(let j=i+1;j<n;j++){const v=ri(-7,7);A[i][j]=v;A[j][i]=v}}
+  const i=d.findIndex(x=>x>0),j=d.findIndex(x=>x<0);
+  return{trick:'mixed',A,ans:'IND',hint:`Kolik je ${M('x'+T+'Ax')} pro ${M('x = eᵢ')} (jednotkový vektor)?`,
+    steps:[`Pro ${M('x = eᵢ')} je ${M('x'+T+'Ax = aᵢᵢ')} (mimodiagonální prvky se neuplatní).`,
+      `${M('e'+sub[i+1]+T+'Ae'+sub[i+1]+' = '+aij(i,i)+' = '+f(d[i])+' > 0')}, ale ${M('e'+sub[j+1]+T+'Ae'+sub[j+1]+' = '+aij(j,j)+' = '+f(d[j])+' < 0')}.`,
+      'Forma nabývá kladných i záporných hodnot ⇒ <b>indefinitní</b>. Mimodiagonální prvky na tom nic nezmění.']}}
+
+function gZero(){const n=pick([2,3,3]),k=ri(0,n-1);const A=[];for(let i=0;i<n;i++)A.push(Array(n).fill(0));
+  const posRest=Math.random()<.65;
+  for(let i=0;i<n;i++){A[i][i]=i===k?0:(posRest?ri(1,9):nz(-9,9))}
+  if(!posRest&&classifyDiag(A.map((r,i)=>r[i]))==='IND')for(let i=0;i<n;i++)if(i!==k)A[i][i]=Math.abs(A[i][i])*(posRest?1:(A.find((r,ii)=>ii!==k&&r[ii]<0)?-1:1));
+  for(let i=0;i<n;i++)for(let j=i+1;j<n;j++){const v=ri(-6,6);A[i][j]=v;A[j][i]=v}
+  let j=(k+1)%n;if(A[k][j]===0){const v=nz(-6,6);A[k][j]=v;A[j][k]=v}
+  for(let jj=0;jj<n;jj++)if(jj!==k&&A[k][jj]!==0){j=jj;break}
+  const a=A[j][j],b=A[k][j];const lo=Math.min(j,k),hi=Math.max(j,k);
+  const S=lo===j?[[a,b],[b,0]]:[[0,b],[b,a]];
+  return{trick:'zero',A,ans:'IND',hint:`Najdi nulu na diagonále a podívej se na její řádek.`,
+    steps:[`${M(aij(k,k)+' = 0')}, ale ${M(aij(k,j)+' = '+f(b))} ≠ 0.`,
+      `Hlavní podmatice z řádků a sloupců ${lo+1}, ${hi+1}: ${mat(S,'sm')}, ${M('det = −('+f(b)+')² = '+f(-b*b)+' < 0')}.`,
+      `Už ta podmatice je indefinitní (forma na ní nabývá obou znamének) ⇒ celá A je <b>indefinitní</b>, ať je zbytek diagonály jakýkoli.`]}}
+
+function gZrow(){const k=ri(0,2),t=pick(['PD','PD','ND','ND','PSD','IND']);const[a,b,c]=gen2(t);
+  const idx=[0,1,2].filter(i=>i!==k);const A=[[0,0,0],[0,0,0],[0,0,0]];
+  A[idx[0]][idx[0]]=a;A[idx[1]][idx[1]]=c;A[idx[0]][idx[1]]=b;A[idx[1]][idx[0]]=b;
+  const ans={PD:'PSD',ND:'NSD',PSD:'PSD',NSD:'NSD',IND:'IND'}[t];
+  const L=[`${k+1}. řádek i sloupec jsou nulové ⇒ ${M('x'+sub[k+1])} ve formě vůbec nefiguruje; pro ${M('x = e'+sub[k+1]+' ≠ 0')} je forma 0 ⇒ nemůže být definitní.`,
+    `Zbytek je podmatice ${mat([[a,b],[b,c]],'sm')}:`,...explain2(a,b,c,'')];
+  L.push(ans==='IND'?'Podmatice je indefinitní ⇒ celá A je <b>indefinitní</b>.':`Podmatice je ${t} ⇒ celá A je jen <b>${ans}</b> (kvůli nulové proměnné).`);
+  return{trick:'zrow',A,ans,hint:'Jedna proměnná se ve formě vůbec nevyskytuje. Co to dělá s definitností?',steps:L}}
+
+function gDet2(){const t=randTarget();const[a,b,c]=gen2(t);const A=[[a,b],[b,c]];
+  return{trick:'det2',A,ans:t,hint:`Spočítej ${M('det A = a₁₁a₂₂ − a₁₂²')} a koukni na znaménko ${M('a₁₁')}.`,steps:explain2(a,b,c,'A')}}
+
+function gNonsym(){let a,s,c,A,tri=Math.random()<.5;
+  if(tri){for(;;){a=ri(1,6);c=ri(1,6);if(Math.random()<.65){const lo=Math.floor(Math.sqrt(a*c))+1;s=ri(lo,lo+2)*pick([1,-1])}else{const m=Math.floor(Math.sqrt(a*c-1));if(m<1)continue;s=nz(-m,m)}if(Math.abs(2*s)<=14)break}
+    if(Math.random()<.3){a=-a;c=-c}A=Math.random()<.5?[[a,2*s],[0,c]]:[[a,0],[2*s,c]]}
+  else{for(;;){[a,s,c]=gen2(pick(['PD','ND','IND','IND','PSD']));const k=nz(-4,4);if(Math.abs(s+k)<=14&&Math.abs(s-k)<=14){A=[[a,s+k],[s-k,c]];break}}}
+  const ans=classify2(a,s,c);
+  const L=[`A není symetrická ⇒ ${M('x'+T+'Ax = x'+T+'Sx')}, kde ${M('S = ½(A + A'+T+')')} = ${mat([[a,s],[s,c]],'sm')} (mimodiagonální prvky zprůměruj).`,...explain2(a,s,c,'S')];
+  if(tri&&Math.sign(a)===Math.sign(c)&&ans!==(a>0?'PD':'ND'))L.push(`Past: A je trojúhelníková, její vlastní čísla jsou ${M(f(a)+', '+f(c))} (stejné znaménko). U nesymetrické matice ale o definitnosti nerozhodují.`);
+  return{trick:'nonsym',A,ans,hint:`A není symetrická. Čím ji nahradíš, aby se forma nezměnila?`,steps:L}}
+
+function gBtB(){const v=pick(['wide','id','dup','plusI','bbt','bbtTall']);const neg=Math.random()<.3&&v!=='plusI';let B,form,ans,L=[];
+  const pre=neg?'−':'';
+  if(v==='wide'){B=[[nz(-3,3),nz(-3,3),nz(-3,3)],[nz(-3,3),nz(-3,3),nz(-3,3)]];form=`A = ${pre}B${T}B`;ans='PSD';
+    L=[`${M('x'+T+'B'+T+'Bx = (Bx)'+T+'(Bx) = ‖Bx‖² ≥ 0')} ⇒ ${M('B'+T+'B')} je vždy aspoň PSD.`,`${M('B ∈ ℝ^{2×3}')}: tři sloupce v ℝ² jsou vždy lineárně závislé ⇒ existuje ${M('x ≠ 0')} s ${M('Bx = 0')} ⇒ ne PD.`]}
+  else if(v==='id'){B=[[1,0],[0,1],[nz(-4,4),nz(-4,4)]];form=`A = ${pre}B${T}B`;ans='PD';
+    L=[`${M('x'+T+'B'+T+'Bx = ‖Bx‖² ≥ 0')}.`,`Horní blok B je ${M('I')} ⇒ z ${M('Bx = 0')} plyne ${M('x₁ = x₂ = 0')} ⇒ sloupce B jsou LN ⇒ ${M('‖Bx‖² > 0')} pro ${M('x ≠ 0')} ⇒ PD.`]}
+  else if(v==='dup'){const col=[nz(-3,3),nz(-3,3),nz(-3,3)],m=nz(-2,2);B=col.map(x=>[x,m*x]);form=`A = ${pre}B${T}B`;ans='PSD';
+    L=[`${M('x'+T+'B'+T+'Bx = ‖Bx‖² ≥ 0')}.`,`2. sloupec = ${f(m)} × 1. sloupec ⇒ ${M('x = ('+f(m)+', −1)')} dá ${M('Bx = 0')} ⇒ ne PD.`]}
+  else if(v==='plusI'){B=[[nz(-3,3),nz(-3,3),nz(-3,3)],[nz(-3,3),nz(-3,3),nz(-3,3)]];form=`A = I + B${T}B`;ans='PD';
+    L=[`${M('x'+T+'(I + B'+T+'B)x = ‖x‖² + ‖Bx‖²')}.`,`První člen je &gt; 0 pro každé ${M('x ≠ 0')}, druhý ≥ 0 ⇒ <b>PD</b> bez ohledu na B.`]}
+  else if(v==='bbt'){B=[[1,0,nz(-3,3)],[0,1,nz(-3,3)]];form=`A = ${pre}BB${T}`;ans='PD';
+    L=[`${M('x'+T+'BB'+T+'x = ‖B'+T+'x‖² ≥ 0')}.`,`Sloupce ${M('B'+T)} (= řádky B) jsou LN – vidíš v nich ${M('I')} ⇒ ${M('B'+T+'x = 0')} jen pro ${M('x = 0')} ⇒ PD.`]}
+  else{B=[[nz(-3,3),nz(-3,3)],[nz(-3,3),nz(-3,3)],[nz(-3,3),nz(-3,3)]];form=`A = ${pre}BB${T}`;ans='PSD';
+    L=[`${M('x'+T+'BB'+T+'x = ‖B'+T+'x‖² ≥ 0')}.`,`${M('B ∈ ℝ^{3×2}')} ⇒ ${M('BB'+T+' ∈ ℝ^{3×3}')} má hodnost nejvýš 2 ⇒ singulární ⇒ ne PD.`]}
+  if(neg){ans={PD:'ND',PSD:'NSD'}[ans];L.push(`Před maticí je minus ⇒ znaménka formy se otočí ⇒ <b>${ans}</b>.`)}
+  else if(v!=='plusI')L.push(`⇒ <b>${ans}</b>.`);
+  return{trick:'btb',display:`<span>${form},</span><span>B =</span>${mat(B)}`,ans,hint:`Napiš ${M('x'+T+'Ax')} jako normu na druhou.`,steps:L,nofast:true}}
+
+function gSyl(){const t=randTarget();for(let it=0;it<2000;it++){
+  const l21=ri(-2,2),l31=ri(-2,2),l32=ri(-2,2);if(!l21&&!l31&&!l32)continue;const P=()=>ri(1,3);let d;
+  if(t==='PD')d=[P(),P(),P()];else if(t==='ND')d=[-P(),-P(),-P()];else if(t==='PSD')d=[P(),P(),0];else if(t==='NSD')d=[-P(),-P(),0];
+  else{d=[nz(-3,3),nz(-3,3),nz(-3,3)];if(classifyDiag(d)!=='IND')continue}
+  const L=[[1,0,0],[l21,1,0],[l31,l32,1]];const A=[0,1,2].map(i=>[0,1,2].map(j=>L[i][0]*d[0]*L[j][0]+L[i][1]*d[1]*L[j][1]+L[i][2]*d[2]*L[j][2]));
+  if(maxAbs(A)>14)continue;
+  if(t==='IND'&&classifyDiag(A.map((r,i)=>r[i]))==='IND'&&Math.random()<.7)continue;
+  if(A.some((r,i)=>r[i]===0))continue;
+  const D1=A[0][0],D2=A[0][0]*A[1][1]-A[0][1]*A[1][0],D3=det3(A);
+  const S=[`${M('D₁ = '+f(D1))}, ${M('D₂ = '+f(A[0][0])+'·'+f(A[1][1])+' − ('+f(A[0][1])+')² = '+f(D2))}, ${M('D₃ = det A = '+f(D3))}.`];
+  const piv=`Symetrické úpravy (pivoty ${M('dₖ = Dₖ/Dₖ₋₁')}): ${M('A ~ diag('+d.map(f).join(', ')+')')}.`;
+  if(t==='PD')S.push('Všechny vedoucí minory &gt; 0 ⇒ podle Sylvestra <b>PD</b>.');
+  else if(t==='ND')S.push('Znaménka (−, +, −) ⇒ podle Sylvestra <b>ND</b> (ekvivalentně −A je PD).');
+  else if(t==='PSD')S.push(`${M('D₃ = 0')} ⇒ singulární ⇒ ne PD. ${piv} Nezáporná diagonála ⇒ <b>PSD</b>.`);
+  else if(t==='NSD')S.push(`${M('D₃ = 0')} ⇒ singulární ⇒ ne ND. ${piv} Nekladná diagonála ⇒ <b>NSD</b>.`);
+  else S.push(`Znaménka nejsou (+, +, +) ani (−, +, −) a ${M('det A ≠ 0')} ⇒ ani semidefinitní ⇒ <b>indefinitní</b>. ${D2<0?'(Stačí už '+M('D₂ < 0')+': levá horní 2×2 podmatice je indefinitní.)':piv}`);
+  return{trick:'syl',A,ans:t,hint:`Spočítej vedoucí hlavní minory ${M('D₁, D₂, D₃')}.`,steps:S}}
+  return gDet2()}
+
+const GEN={diag:[gDiagM,gMixed,gZero,gZrow],det2:[gDet2],past:[gNonsym,gNonsym,gBtB,gBtB],syl:[gSyl]};
+
+/* ---------- stav ---------- */
+const KEY='opt-definitnost-v1';
+let S={total:0,correct:0,streak:0,best:0,per:{},groups:{diag:true,det2:true,past:true,syl:true}};
+try{const r=localStorage.getItem(KEY);if(r)S=Object.assign(S,JSON.parse(r))}catch(e){}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+let q=null,answered=false,last='';
+const $=id=>document.getElementById(id);
+
+const ans=$('answers');
+TYPES.forEach((t,i)=>{const b=document.createElement('button');b.type='button';b.id='ans-'+t.id;b.innerHTML=`<b>${t.code}</b><small>xᵀAx ${t.sym}</small>`;b.title=`${i+1}: ${t.name}`;b.onclick=()=>choose(t.id);ans.appendChild(b)});
+
+function renderChips(){const c=$('chips');c.innerHTML='';Object.entries(GROUPS).forEach(([k,name])=>{const b=document.createElement('button');b.type='button';b.className='chip';b.id='chip-'+k;b.textContent=name;b.setAttribute('aria-pressed',S.groups[k]?'true':'false');
+  b.onclick=()=>{const on=Object.values(S.groups).filter(Boolean).length;if(S.groups[k]&&on===1)return;S.groups[k]=!S.groups[k];save();renderChips();if(!answered&&q&&!S.groups[TRICKS[q.trick][0]])next()};c.appendChild(b)})}
+
+function renderStats(){$('sc').textContent=S.correct;$('st').textContent=S.total;$('ss').textContent=S.streak;$('sb').textContent=S.best;
+  $('stats').innerHTML=Object.entries(TRICKS).map(([k,[g,name]])=>{const p=S.per[k]||{c:0,t:0};const pct=p.t?Math.round(100*p.c/p.t):0;
+  return `<tr><td>${name}</td><td><div class="bar"><i style="width:${pct}%"></i></div></td><td class="n">${p.c}/${p.t}</td></tr>`}).join('')}
+
+function next(){const gs=Object.keys(S.groups).filter(k=>S.groups[k]);let cand;
+  for(let i=0;i<8;i++){const g=pick(gs);cand=pick(GEN[g])();const key=JSON.stringify(cand.A||cand.display);if(key!==last){last=key;break}}
+  q=cand;answered=false;
+  $('qtag').textContent=GROUPS[TRICKS[q.trick][0]];
+  $('qprompt').textContent='Urči definitnost. Vyber nejpřesnější možnost.';
+  $('stage').innerHTML=q.display||`<span>A =</span>${mat(q.A)}`;
+  TYPES.forEach(t=>{const b=$('ans-'+t.id);b.disabled=false;b.className=''});
+  $('hint').hidden=true;$('fb').hidden=true;$('nextBtn').hidden=true;$('hintBtn').hidden=false;
+  const first=$('ans-PD');if(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#card'))first.focus()}
+
+function choose(id){if(answered||!q)return;answered=true;const ok=id===q.ans;
+  S.total++;if(ok){S.correct++;S.streak++;S.best=Math.max(S.best,S.streak)}else S.streak=0;
+  const p=S.per[q.trick]||(S.per[q.trick]={c:0,t:0});p.t++;if(ok)p.c++;save();renderStats();
+  TYPES.forEach(t=>{const b=$('ans-'+t.id);b.disabled=true;if(t.id===q.ans)b.classList.add('ok');else if(t.id===id)b.classList.add('bad')});
+  let html=`<div class="verdict ${ok?'ok':'bad'}">${ok?'Správně':'Špatně'} – ${TNAME[q.ans]}</div>`;
+  if(!ok&&((q.ans==='PD'&&id==='PSD')||(q.ans==='ND'&&id==='NSD')))html+=`<div class="fast">${id} sice platí taky, ale ${q.ans} je silnější tvrzení. V testu chtějí to nejpřesnější.</div>`;
+  html+=`<div class="trick">Trik: <b>${TRICKS[q.trick][1]}</b></div><ol>${q.steps.map(s=>`<li>${s}</li>`).join('')}</ol>`;
+  if(!q.nofast&&q.A&&q.trick!=='mixed'&&q.trick!=='zero'&&q.trick!=='nonsym'){const fn=fastNote(q.A);if(fn)html+=`<div class="fast">${fn}</div>`}
+  $('fb').innerHTML=html;$('fb').hidden=false;$('hintBtn').hidden=true;$('nextBtn').hidden=false;$('nextBtn').focus()}
+
+$('hintBtn').onclick=()=>{if(!q)return;$('hint').innerHTML='Nápověda: '+q.hint;$('hint').hidden=false};
+$('nextBtn').onclick=next;
+$('reset').onclick=()=>{if($('reset').dataset.c){S.total=S.correct=S.streak=S.best=0;S.per={};save();renderStats();$('reset').textContent='Vynulovat statistiku';delete $('reset').dataset.c}else{$('reset').dataset.c='1';$('reset').textContent='Opravdu vynulovat? Klikni znovu'}};
+document.addEventListener('keydown',e=>{if(e.target.closest&&e.target.closest('input,textarea'))return;
+  if(!answered&&/^[1-5]$/.test(e.key)){choose(TYPES[+e.key-1].id);e.preventDefault()}
+  else if(answered&&(e.key==='Enter'||e.key===' ')){next();e.preventDefault()}
+  else if(!answered&&(e.key==='h'||e.key==='H'))$('hintBtn').click()});
+
+renderChips();renderStats();next();
+})();
+</script>
+
+</body>
+</html>
